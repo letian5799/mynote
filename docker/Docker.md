@@ -108,6 +108,9 @@ rm -rf /var/lib/docker
 
    ```bash
    yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+   
+   #阿里镜像
+   yum-config-manager --add-repo  http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
    ```
 
 3. 更新yum软件包索引
@@ -120,16 +123,53 @@ rm -rf /var/lib/docker
 
 安装最新版本docker-ce
 
+```bash
+yum install docker-ce docker-ce-cli containerd.io
+```
+
+手动安装特定版本
+
+```bash
+#查看docker所有版本并排序
+yum list docker-ce --showduplicates |sort -r
+```
+
+```bash
+yum install docker-ce-<VERSION_STRING> docker-ce-cli-<VERSION_STRING> containerd.io
+```
+
 ## 配置镜像加速 
 
 这里使用阿里云的免费镜像加速服务，也可以使用其他如时速云、网易云等
 
 1. 注册登录开通阿里云[容器镜像服务](https://cr.console.aliyun.com/cn-hangzhou/repositories)
+
 2. 查看控制台，招到镜像加速器并复制自己的加速器地址
-3. 找到/etc/docker目录下的json文件，没有则直接 vidaemon.json
-4. 加入以下配置
-5. 通知systemd重载此配置文件；
-6. 重启docker服务
+
+3. 找到/etc/docker目录下的json文件，没有的话，如下操作
+
+   ```bash
+   mkdir -p /etc/docker
+   vi daemon.json
+   #在此文件中填写自己的加速器地址，保存退出
+   {
+   "registry-mirrors": ["https://zfzbet67.mirror.aliyuncs.com"]
+   }
+   ```
+
+4. 通过systemd重载此配置文件；
+
+   ```bash
+   systemctl daemon-reload
+   ```
+
+5. 重启docker服务
+
+   ```bash
+   systemctl restart docker
+   ```
+
+   
 
 # Docker 常用操作  
 
@@ -139,11 +179,97 @@ rm -rf /var/lib/docker
 
 查找镜像：
 
+```bash
+docker search 关键词
+#搜索docker hub网站镜像的详细信息
+```
+
 下载镜像：
+
+```bash
+docker pull 镜像名:TAG
+# Tag表示版本，有些镜像的版本显示latest，为最新版本
+```
 
 查看镜像：
 
-docker run --name 容器名 -i -t -p 主机端口:容器端口 -d -v 主机目录:容器目录:ro 镜像ID或镜像名:TAG # --name 指定容器名，可自定义，不指定自动命名 # -i 以交互模式运行容器 # -t 分配一个伪终端，即命令行，通常-it组合来使用 # -p 指定映射端口，讲主机端口映射到容器内的端口 # -d 后台运行容器 # -v 指定挂载主机目录到容器目录，默认为rw读写模式，ro表示只读
+```bash
+#查看本地所有镜像
+docker images
+```
+
+删除镜像：
+
+```bash
+docker rmi -f 镜像名:TAG
+```
+
+获取元信息：
+
+```bash
+docker inspect 镜像ID或者镜像名:TAG
+```
+
+容器列表：
+
+```bash
+docker ps -a -q
+# docker ps 查看正在运行的容器
+# -a 查看所有容器（运行中、未运行）
+# -q 只查看容器ID
+```
+
+启动容器/停止容器/删除容器：
+
+```bash
+docker start 容器ID或者容器名
+docker stop 容器ID或者容器名
+docker rm -f 容器ID或者容器名
+# -f 表示强制删除
+```
+
+查看日志：
+
+```bash
+docker logs 容器ID或者容器名
+```
+
+运行：
+
+```bash
+docker run --name 容器名 -i -t -p 主机端口:容器端口 -d -v 主机目录:容器目录:ro 镜像ID或镜像名:TAG 
+```
+
+```
+--name 指定容器名，可自定义，不指定自动命名 
+-i 以交互模式运行容器 
+-t 分配一个伪终端，即命令行，通常-it组合来使用 
+-p 指定映射端口，讲主机端口映射到容器内的端口 
+-d 后台运行容器 
+-v 指定挂载主机目录到容器目录，默认为rw读写模式，ro表示只读
+```
+
+进入正在运行的容器：
+
+```bash
+# 进入正在运行的容器并且开启交互模式终端
+docker exec -it 容器ID或者容器名 /bin/bash
+# /bin/bash是固定写法，作用是因为docker后台必须运行一个进程，否则容器就会退出，在这里表示启动容器后并进入bash
+# 也可以使用docker exec在运行中的容器执行命令
+```
+
+拷贝文件：
+
+```bash
+#从主机拷贝到容器
+docker cp 主机文件路径   容器ID或者容器名:容器路径
+#从容器拷贝到主机
+docker cp 容器ID或者容器名:容器路径    主机文件路径
+```
+
+
+
+## docker运行tomcat案例
 
 ```bash
 #运行tomcat
