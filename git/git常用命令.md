@@ -67,34 +67,36 @@ $ git commit --amend [file1] [file2] ...
 
 ```bash
 # 列出所有本地分支
-$ git branch
+git branch
 # 列出所有远程分支
-$ git branch -r
+git branch -r
 # 列出所有本地分支和远程分支
-$ git branch -a
+git branch -a
 # 新建一个分支，但依然停留在当前分支
-$ git branch [branch-name]
+git branch [branch-name]
+#基于当前分支创建分支
+git branch 新分支名称 当前分支名称
 # 新建一个分支，并切换到该分支
-$ git checkout -b [branch]
+git checkout -b [branch]
 # 新建一个分支，指向指定commit
-$ git branch [branch] [commit]
+git branch [branch] [commit]
 # 新建一个分支，与指定的远程分支建立追踪关系
-$ git branch --track [branch] [remote-branch]
+git branch --track [branch] [remote-branch]
 # 切换到指定分支，并更新工作区
-$ git checkout [branch-name]
+git checkout [branch-name]
 # 切换到上一个分支
-$ git checkout -
+git checkout -
 # 建立追踪关系，在现有分支与指定的远程分支之间
-$ git branch --set-upstream [branch] [remote-branch]
+git branch --set-upstream [branch] [remote-branch]
 # 合并指定分支到当前分支
-$ git merge [branch]
+git merge [branch]
 # 选择一个commit，合并进当前分支
-$ git cherry-pick [commit]
+git cherry-pick [commit]
 # 删除分支
-$ git branch -d [branch-name]
+git branch -d [branch-name]
 # 删除远程分支
-$ git push origin --delete [branch-name]
-$ git branch -dr [remote/branch]
+git push origin --delete [branch-name]
+git branch -dr [remote/branch]
 ```
 
 ## 标签
@@ -220,3 +222,40 @@ $ git stash pop
 # 生成一个可供发布的压缩包
 $ git archive
 ```
+
+# git 使用 github 托管服务
+
+```bash
+# 1.在github上新建一个仓库
+# 2.在本地初始化一个工作空间
+$ git init
+# 3. 关联远程仓库
+git remote add origin https://gitee.com/用户个性地址/HelloGitee.git
+# 4.预设用户信息
+$ git config --global user.name "你的名字或昵称"
+$ git config --global user.email "你的邮箱"
+# 从远程仓库拉取代码，可要可不要
+$ git pull origin master
+
+$ git add . #将当前目录所有文件添加到git暂存区
+$ git commit -m "my first commit" #提交并备注提交信息
+$ git push origin master #将本地提交推送到远程仓库
+```
+
+
+
+# git 对象说明
+
+- blob 对象
+
+  当执行add操作来添加一个文件的时候，git会将文件内容放到暂存区，生成一个blob对象。在项目根目录下可通过 `find ./.git/objects/ -type f` 查看当前的 git 对象，再通过`git cat-file -t  [hash]` 查看对象类型，`git cat-file -p [hash]` 可查看对象内容。
+
+- commit 对象
+
+  在执行commit操作时，会生成commit对象，commit对象中存储的时tree对象的id
+
+- tree 对象
+
+  在执行commit操作时，会生成tree对象，tree对象存储的是子tree、元数据（author、committer等）以及blob对象
+
+- tag对象

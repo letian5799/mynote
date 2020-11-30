@@ -1,3 +1,13 @@
+# Redis
+
+官方网站：http://redis.io
+
+## Redis介绍
+
+redis是key-value型数据库，适合做数据共享和缓存
+
+## redis优势
+
 ## Redis安装
 
 Linux下安装Redis
@@ -15,9 +25,131 @@ make
 yum -y install gcc make gcc-c++
 ```
 
-redis 默认安装位置为 /usl/local下
+redis 默认安装位置为 /usr/local下
 
-## Redis 备份（持久化）
+
+## redis数据类型
+
+ - 字符串
+ - 哈希
+ - 集合
+ - 列表
+
+## 字符串操作
+
+- `set key value`
+- `get key`
+- `getrange key 0 -1`
+- `keys * `
+- `getall`
+- `del`
+- `expire key seconds`
+- `setex key seconds value`
+- `ttl key`
+- `strlen key`
+- `incr key`
+- `incrby key num`
+- `decr key`
+- `decrby key num`
+
+## 哈希
+
+- `hset key field`
+
+- `hget key field` 
+- `hgetall key`
+- `hkeys key`
+- `hlen key`
+- `hmset key field1 value1 field2 value2...`
+- `hmget key field1 field2...`
+- `hvals key`
+
+## 列表
+
+列表是简单的字符串列表，按照插入顺序排序，可以在头部或尾部插入元素
+
+- `lpush name value` 在名为lname的列表的左侧插入value
+
+- `rpush name value`
+
+- `lrange name 0 -1`
+
+- `lpop name` 从左侧弹出一个元素
+
+- `rpop name` 从右侧弹出一个元素
+
+- `lindex name 2` 查看索引为2的元素
+
+- `lrem name 2 1` 在名为name的列表中删除2个值为1的元素
+
+## 集合
+
+集合是字符串类型的无序集合，元素是不重复的，如果插入的元素已存在则返回0
+
+- `sadd name value` 向名为name的集合中插入value值，可以同时插入多个元素
+
+- `SMEMBERS name` 查看集合所有成员
+
+- `scard name` 查看集合长度
+
+- `srem name ele` 删除指定元素
+
+- `sinter a b` 求a和b集合的交集
+
+- `sdiff a b` 求差集
+
+- `sunion a b` 求并集
+
+## 有序集合
+
+Redis 有序集合和集合一样也是string类型元素的集合,且不允许重复的成员。
+
+不同的是每个元素都会关联一个double类型的分数。redis正是通过分数来为集合中的成员进行从小到大的排序。
+
+有序集合的成员是唯一的,但分数(score)却可以重复。
+
+- `ZADD key score ...` 可以添加多个
+
+- `ZCARD key` 获取有序集合的成员数
+
+- `ZREM key member [member ...]` 移除有序集合中的一个或多个成员 
+
+
+## 发布订阅
+
+- `subscribe channelA` 订阅channelA
+
+- `publish channelA anhuiTV` 在channelA上发布消息
+
+- `ZRANGE key start stop [WITHSCORES]` 通过索引区间返回有序集合指定区间内的成员,withscore选项可以查询出分数
+
+## 事务
+
+Redis 事务可以一次执行多个命令， 并且带有以下三个重要的保证：
+
+- 批量操作在发送 EXEC 命令前被放入队列缓存。
+- 收到 EXEC 命令后进入事务执行，事务中任意命令执行失败，其余的命令依然被执行。
+- 在事务执行过程，其他客户端提交的命令请求不会插入到事务执行命令序列中。
+
+一个事务从开始到执行会经历以下三个阶段：
+
+- 开始事务。 通过multi开启一个事务
+- 命令入队。 此后执行的所有的命令都会进入队列中
+- 执行事务。 当遇到exec命令时，批量执行以上操作
+
+
+```
+// 在node.js中的使用案例：
+const redis = require('redis')
+const client = redis.createClient(6379,'localhost')
+client.multi().set('k1','v1').set('k2','v2').get('k2').exec((err,result)=>{
+	console.log(result)
+})
+```
+
+
+
+## Redis 持久化
 
 Redis备份有以下两种方式：
 
@@ -77,10 +209,20 @@ aof-use-rdb-preamble yes
 
 #### RDB持久化触发机制
 
-shutdown时，如果没有开启aof，会触发
- 配置文件中默认的快照配置
- 执行命令save或者bgsave  save是只管保存，其他不管，全部阻塞   bgsave： redis会在后台异步进行快照操作，同时可以响应客户端的请求
- 执行flushall命令  但是里面是空的，无意义
+- shutdown时，如果没有开启aof，会触发
+- 配置文件中默认的快照配置
+- 执行命令save或者bgsave  （save是只管保存，其他不管，全部阻塞），而 bgsave： redis会在后台异步进行快照操作，同时可以响应客户端的请求
+-  执行flushall命令  但是里面是空的，无意义
+
+#### 关于RDB持久化的测试
+
+前期准备：
+
+（1）一个存储500万数据的dump5000000.rdb文件；
+
+（2）打开两个redis客户端；
+
+（3）在redis.conf文件中修改rdb文件读取路径，然后启动redis服务
 
 ### AOF 持久化
 
@@ -98,7 +240,7 @@ everysec：表示每秒同步一次（默认值,很快，但可能会丢失一�
 
 #### AOF 重写机制
 
-当AOF文件增长到一定大小的时候Redis能够调用 bgrewriteaof对日志文件进行重写 。当AOF文件大小的增长率大于该配置项时自动开启重写（这里指超过原大小的100%）。
+当AOF文件增长到一定大小的时候，Redis能够调用 bgrewriteaof对日志文件进行重写 。当AOF文件大小的增长率大于该配置项时自动开启重写（这里指超过原大小的100%）。
 auto-aof-rewrite-percentage 100
 
 当AOF文件增长到一定大小的时候Redis能够调用 bgrewriteaof对日志文件进行重写 。当AOF文件大小大于该配置项时自动开启重写
