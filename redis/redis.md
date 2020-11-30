@@ -10,97 +10,177 @@ redis是key-value型数据库，适合做数据共享和缓存
 
 ## Redis安装
 
-Linux下安装Redis
+### Windows安装
+
+### Linux 安装
+
+本文采用源码安装， linux系统版本为Centos7，redis版本为5.0.8
+
+本人下载的软件包放在/download目录下
 
 ```bash
-wget https://download.redis.io/releases/redis-6.0.9.tar.gz
-tar xzf redis-6.0.9.tar.gz
-cd redis-6.0.9
+#1.使用wget下载软件包，wget命令默认下载到当前目录
+wget http://download.redis.io/releases/redis-5.0.8.tar.gz
+#2.解压
+tar xzf redis-5.0.8.tar.gz
+cd redis-5.0.8
+#执行make命令，编译
 make
+#执行make install 将可执行脚本放到/usr/local/bin目录下
+make install
 ```
 
-使用make编译前需要安装编译环境
+执行完make install 之后，我们可以进入/usr/local/bin目录看一下生成的redis脚本文件，并做简单介绍。
+
+![image-20201129230854962](D:\java学习笔记\mynote\redis\image-20201129230854962.png)
+
+- redis-benchmark -----性能测试脚本
+- redis-check-aof ----修复aof文件
+- redis-check-rdb ---修复rdb文件
+- redis-cli ----客户端连接
+- redis-sentinel -> redis-server ----哨兵集群
+- redis-server ----redis服务
+
+## redis设置外网访问
+
+```
+ 1.注释bind并且把protected-mode no
+ 2.使用bind
+ 3.设置密码
+ protected-mode它启用的条件有两个，第一是没有使用bind，第二是没有设置访问密码。
+```
+
+第一步：进入redis.conf文件，修改bind 0.0.0.0 或者注释掉bind,如果采用注释bind的方式，需要同时将protected-mode配置为no，默认是yes的，protected-mode是保护模式，意思是只允许本机访问。
+
+那么为什么设置bind 0.0.0.0 而protected-mode yes也可以访问呢？protected-mode yes启用必须满足两个条件第一是没有使用bind，第二是没有设置访问密码。
+
+## redis访问密码设置
+
+在配置文件中配置requirepass
 
 ```bash
-yum -y install gcc make gcc-c++
+# 默认是关闭的，可以修改其值，这样连接redis时需要通过auth <password>的方式连接
+requirepass foobared
 ```
 
-redis 默认安装位置为 /usr/local下
+redis启动
+
+```bash
+#默认在/usr/local/bin目录下执行
+./redis-server
+# 也可以后面跟指定的配置文件来执行
+./redis-server /usr/local/myredis/redis.conf
+```
+
+redis停止
+
+```bash
+# 查看redis进程id
+ps -ef | grep redis
+# kill掉redis进程
+kill -9 进程ID
+```
+
+
 
 
 ## redis数据类型
 
- - 字符串
+ - 字符串(string)
  - 哈希
  - 集合
  - 列表
 
-## 字符串操作
+### 字符串(string)
 
-- `set key value`
-- `get key`
-- `getrange key 0 -1`
-- `keys * `
-- `getall`
-- `del`
-- `expire key seconds`
-- `setex key seconds value`
-- `ttl key`
-- `strlen key`
-- `incr key`
-- `incrby key num`
-- `decr key`
-- `decrby key num`
+string是redis最基本的类型，你可以理解成与Memcached一模一样的类型，一个key对应一个value。一个redis中字符串value最多可以是512M。
 
-## 哈希
+string类型是二进制安全的。意思是redis的string可以包含任何数据。比如jpg图片或者序列化的对象 。
 
-- `hset key field`
+- `set  key  value`   设置key  value
+- `get  key`    查看当前key的值
+- `del  key`   删除key
+- `append key  value`   如果key存在，则在指定的key末尾添加，如果key存在则类似set
+- `strlen  key`  返回此key的长度
 
-- `hget key field` 
-- `hgetall key`
-- `hkeys key`
-- `hlen key`
-- `hmset key field1 value1 field2 value2...`
-- `hmget key field1 field2...`
-- `hvals key`
+以下几个命令只有在key值为数字的时候才能正常操作：
 
-## 列表
+------
+
+- `incr  key`  为执定key的值加一
+- `decr  key`  为指定key的值减一
+- `incrby key`  数值     为指定key的值增加数值
+- `decrby key`  数值     为指定key的值减数值
+
+------
+
+- `getrange  key  0(开始位置)  -1（结束位置）`    获取指定区间范围内的值，类似between......and的关系 （0 -1）表示全部
+- `setrange key 1（开始位置，从哪里开始设置） 具体值`    设置（替换）指定区间范围内的值
+- `setex 键 秒值 真实值`    设置带过期时间的key，动态设置。
+- `setnx  key   value`         只有在 key 不存在时设置 key 的值。
+- `mset   key1   value  key2   value`       同时设置一个或多个 key-value 对。
+- `mget   key1   key 2`    获取所有(一个或多个)给定 key 的值。
+- `msetnx   key1   value  key2   value`   同时设置一个或多个 key-value 对，当且仅当所有给定 key 都不存在。
+- `getset   key    value`  将给定 key 的值设为 value ，并返回 key 的旧值(old value)。
+
+### 哈希(hash)
+
+Redis hash 是一个键值对集合。
+Redis hash是一个string类型的field和value的映射表，hash特别适合用于存储对象。
+
+kv模式不变，但v是一个键值对，类似Java里面的Map<String,Object>
+
+- `hset  key  (key value)`  向hash表中添加一个元素
+- `hget key  key`  向hash表中获取一个元素
+- `hmset  key key1 value1 key2 value2 key3 value3` 向集合中添加一个或多个元素
+- `hmget key  key1 key2 key3`  向集合中获取一个或多个元素
+- `hgetall  key`   获取在hash列表中指定key的所有字段和值
+- `hdel  key  key1 key2` 删除一个或多个hash字段
+- `hlen key` 获取hash表中字段数量
+- `hexits key key`  查看hash表中，指定key（字段）是否存在
+- `hkeys  key` 获取指定hash表中所有key（字段）
+- `hvals key` 获取指定hash表中所有value(值)
+- `hincrdy key  key1  数量（整数）`  执定hash表中某个字段加  数量  ，和incr一个意思
+- `hincrdyfloat key key1  数量（浮点数，小数）`  执定hash表中某个字段加  数量  ，和incr一个意思
+- `hsetnx key key1 value1`  与hset作用一样，区别是不存在赋值，存在了无效。
+
+### 列表(list)
 
 列表是简单的字符串列表，按照插入顺序排序，可以在头部或尾部插入元素
+如果键不存在，创建新的链表；
+如果键已存在，新增内容；
+如果值全移除，对应的键也就消失了；
+链表的操作无论是头和尾效率都极高，但假如是对中间元素进行操作，效率就很惨淡了；
+它的底层实际是个链表。
 
-- `lpush name value` 在名为lname的列表的左侧插入value
+- `lpush  key  value1  value2`  将一个或多个值加入到列表头部
+- `rpush  key  value1  value2` 将一个或多个值加入到列表底部
+- `lrange key  start  end`  获取列表指定范围的元素   （0 -1）表示全部
+- `lpop key` 移出并获取列表第一个元素
+- `rpop key`  移出并获取列表最后一个元素
+- `lindex key index`   通过索引获取列表中的元素 
+- `llen` 获取列表长度
+-  `lrem key   0（数量） 值`，表示删除全部给定的值。零个就是全部值   从left往right删除指定数量个值等于指定值的元素，返回的值为实际删除的数量
 
-- `rpush name value`
+- `ltrim key  start(从哪里开始截)  end（结束位置）` 截取指定索引区间的元素，格式是ltrim list的key 起始索引 结束索引
 
-- `lrange name 0 -1`
-
-- `lpop name` 从左侧弹出一个元素
-
-- `rpop name` 从右侧弹出一个元素
-
-- `lindex name 2` 查看索引为2的元素
-
-- `lrem name 2 1` 在名为name的列表中删除2个值为1的元素
-
-## 集合
+### 集合(set)
 
 集合是字符串类型的无序集合，元素是不重复的，如果插入的元素已存在则返回0
 
-- `sadd name value` 向名为name的集合中插入value值，可以同时插入多个元素
+- `sadd key value1 value 2` 向集合中添加一个或多个成员
+- `smembers  key`  返回集合中所有成员
+- `sismembers  key   member`  判断member元素是否是集合key的成员
+- `scard key`  获取集合里面的元素个数
+- `srem key value`  删除集合中指定元素
+- `srandmember key  数值`     从set集合里面随机取出指定数值个元素   如果超过最大数量就全部取出，
+- `spop key`  随机移出并返回集合中某个元素
+- `smove  key1  key2  value(key1中某个值)`   作用是将key1中执定的值移除  加入到key2集合中
+- `sdiff key1 key2`  在第一个set里面而不在后面任何一个set里面的项(差集)
+- `sinter key1 key2`  在第一个set和第二个set中都有的 （交集）
+- `sunion key1 key2`  两个集合所有元素（并集）
 
-- `SMEMBERS name` 查看集合所有成员
-
-- `scard name` 查看集合长度
-
-- `srem name ele` 删除指定元素
-
-- `sinter a b` 求a和b集合的交集
-
-- `sdiff a b` 求差集
-
-- `sunion a b` 求并集
-
-## 有序集合
+### 有序集合（zset）
 
 Redis 有序集合和集合一样也是string类型元素的集合,且不允许重复的成员。
 
@@ -108,11 +188,15 @@ Redis 有序集合和集合一样也是string类型元素的集合,且不允许�
 
 有序集合的成员是唯一的,但分数(score)却可以重复。
 
-- `ZADD key score ...` 可以添加多个
-
-- `ZCARD key` 获取有序集合的成员数
-
-- `ZREM key member [member ...]` 移除有序集合中的一个或多个成员 
+- `zadd  key  score 值   score 值`   向集合中添加一个或多个成员
+- `zrange key  0   -1`  表示所有   返回指定集合中所有value
+- `zrange key  0   -1  withscores`  返回指定集合中所有value和score
+- `zrangebyscore key 开始score 结束score`    返回指定score间的值
+- `zrem key score某个对应值（value）`，可以是多个值   删除元素
+- `zcard key`  获取集合中元素个数
+- `zcount key   开始score 结束score`       获取分数区间内元素个数
+- `zrank key vlaue`   获取value在zset中的下标位置(根据score排序)
+- `zscore key value`  按照值获得对应的分数
 
 
 ## 发布订阅
@@ -259,22 +343,22 @@ auto-aof-rewrite-min-size 64mb
 
 ### 关于 Redis 持久化的总结
 
-#### 1. redis提供了rdb持久化方案，为什么还要aof？
+1. **redis提供了rdb持久化方案，为什么还要aof？**
 
 优化数据丢失问题，rdb会丢失最后一次快照后的数据，aof丢失不会超过2秒的数据
 
-#### 2. 如果aof和rdb同时存在，听谁的？
+2. **如果aof和rdb同时存在，听谁的？**
 
 aof
 
-#### 3. rdb和aof优势劣势
+3. **rdb和aof优势劣势**
 
 rdb 适合大规模的数据恢复，对数据完整性和一致性不高 ，  在一定间隔时间做一次备份，如果redis意外down机的话，就会丢失最后一次快照后的所有操作
 aof 根据配置项而定
 
-1.官方建议   两种持久化机制同时开启，如果两个同时开启  优先使用aof持久化机制  
+**官方建议   两种持久化机制同时开启，如果两个同时开启  优先使用aof持久化机制**  
 
-#### 4. 性能建议（这里只针对单机版redis持久化做性能建议）：
+4. **性能建议（这里只针对单机版redis持久化做性能建议）：**
 
 因为RDB文件只用作后备用途，只要15分钟备份一次就够了，只保留save 900 1这条规则。
 
@@ -282,6 +366,10 @@ aof 根据配置项而定
 代价一是带来了持续的IO，二是AOF rewrite的最后将rewrite过程中产生的新数据写到新文件造成的阻塞几乎是不可避免的。
 只要硬盘许可，应该尽量减少AOF rewrite的频率，AOF重写的基础大小默认值64M太小了，可以设到5G以上。
 默认超过原大小100%大小时重写可以改到适当的数值。
+
+### Redis持久化工作机制
+
+![redis持久化工作机制](D:\java学习笔记\mynote\redis\redis持久化工作机制.jpg)
 
 ## Redis 内存回收策略
 
