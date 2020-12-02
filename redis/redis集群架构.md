@@ -373,6 +373,8 @@ sentinel deny-scripts-reconfig yes
 
 redis cluster集群是一个由多个主从节点群组成的分布式服务器群，它具有复制、高可用和分片特性。Redis cluster集群不需要sentinel哨兵也能完成节点移除和故障转移的功能。需要将每个节点设置成集群模式，这种集群模式没有中心节点，可水平扩展，据官方文档称可以线性扩展到1000节点。redis cluster集群的性能和高可用性均优于之前版本的哨兵模式，且集群配置非常简单。
 
+优点：通过集群，Redis解决了写操作无法负载均衡，以及存储能力受到单机限制的问题，实现了较为完善的高可用方案。
+
 ### Redis Cluster集群节点通信
 
 cluster集群通信是通过Gossip协议进行通讯的，通信端口默认是redis服务端口数值+10000。
@@ -418,28 +420,40 @@ master再搭建一个slave节点，总共6个redis节点，由于节点数较多
 
 #### 原生搭建
 
-##### 1.配置开启cluster节点
+1.配置开启cluster节点
 
+```
 cluster-enabled yes（启动集群模式）
 
 cluster-config-file nodes-8001.conf（这里800x最好和port对应上）
+```
 
-##### 2.meet
+2.meet
 
+```
 cluster meet ip port
+```
 
-##### 3.指派槽
+3.指派槽
 
-查看crc16 算法算出key的槽位命令  cluster keyslot key
+查看crc16 算法算出key的槽位命令
 
-16384/3  0-5461  5462-10922  10923-16383
-16384/4 4096
+```bash
+cluster keyslot key
+```
 
+16384/3    0-5461  5462-10922  10923-16383
+16384/4    4096
+
+```bash
 cluster addslots slot（槽位下标）
+```
 
-##### 4.分配主从
+4.分配主从
 
+```bash
 cluster replicate node-id
+```
 
 #### 使用redis提供的脚本
 
@@ -503,4 +517,101 @@ redis5.0使用下面这个命令：
 （4）关闭集群则需要逐个进行关闭，使用命令：
 /usr/local/redis/bin/redis-cli -c -h 127.0.0.1 -p 700* shutdown
 
-#### 集群伸缩
+#### 集群动态扩容与缩容
+
+cluster集群可以方便的实现集群扩容与缩容
+
+**集群扩容**
+
+1、准备新的节点，并启动
+
+2、加入集群
+
+原生方法：
+
+```bash
+#建立通信节点
+cluster meet ip port
+# 作为指定节点的从节点，node-id是主节点的id
+cluster replicate node-id
+```
+
+使用redis-cli  语法（加入时指定）
+
+```bash
+#如果只是添加主节点，用这个命令就可以了
+add-node 新节点ip  端口  已存在节点ip 端口
+#这个命令可以指定主从关系
+add-node 新节点ip  端口  已存在节点ip 端口  --cluster-slave --cluster-master-id masterID
+```
+
+3、迁移槽和数据
+
+```bash
+#使用命令分配slot
+/redis-cli --cluster reshard 已存在节点ip:端口
+#执行命令后根据提示依次输入分配槽的数量以及接受slot的节点ID,slot数值来源于所有节点的数据槽，
+#slot = 16384/主节点个数 eg：16384/（原来3个主节点+新主节点）= 4096）
+```
+
+4、添加从节点
+
+添加从节点的方式和添加主节点的一样，从节点不需要分配slot
+
+**集群缩容**
+
+cluster删除节点操作应遵循：**先删除slave从节点，然后在删除master主节点**
+
+删除从节点：
+
+```bash
+redis-cli --cluster del-node IP:port 节点ID
+```
+
+删除主节点：
+
+```bash
+redis-cli --cluster reshard --cluster-from 要迁出节点ID  --cluster-to  接收槽节点ID --cluster-slots 迁出槽数量 已存在节点ip 端口
+```
+
+#### cluster客户端
+
+在使用cluster客户端时，要注意启动命令与非集群的区别是多了一个 `-c` 的指令
+
+```bash
+/usr/local/bin/redis-cli -h 192.168.19.105 -p 7000 -a 123456 -c
+```
+
+moved重定向：
+
+> 指我们发送命令时，会对发送的key进行crc16算法，得到一个数字，然而我们连接的客户端并不是管理这个数字的范围，所以会返回错误并告诉你此key应该对应的槽位，然后客户端需要捕获此异常，重新发起请求到对应的槽位
+
+asx重定向：
+
+> 指在我们送发命令时，对应的客户端正在迁移槽位中，所以此时我们不能确定这个key是还在旧的节点中还是新的节点中
+
+smart客户端
+
+> 1.从集群中选取一个可运行节点，使用cluster slots初始化槽和节点映射。
+>
+> 2.将cluster slots的结果映射到本地，为每个节点创建jedispool
+>
+> 3.准备执行命令
+
+#### cluster模式故障转移原理
+
+**故障发现** 
+
+通过ping/pong消息实现故障发现（不依赖sentinel）
+
+**故障恢复**
+
+- 检查资格
+  - 每个从节点检查与主节点的断开时间，超过cluster-node-timeout * cluster-replica-validity-factor 时间取消资格
+
+  - 选择偏移量最大的
+
+- 替换主节点
+  - 1.当前从节点取消复制变为主节点（slaveof no one）
+  - 2.撤销以前主节点的槽位，给新的主节点
+  - 3.向集群广播消息，表明已经替换了故障节点
