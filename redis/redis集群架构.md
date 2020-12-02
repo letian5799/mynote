@@ -540,9 +540,9 @@ cluster replicate node-id
 
 ```bash
 #如果只是添加主节点，用这个命令就可以了
-add-node 新节点ip  端口  已存在节点ip 端口
+/redis-cli --cluster add-node 新节点ip:端口  已存在节点ip:端口
 #这个命令可以指定主从关系
-add-node 新节点ip  端口  已存在节点ip 端口  --cluster-slave --cluster-master-id masterID
+add-node 新节点ip:端口  已存在节点ip:端口  --cluster-slave --cluster-master-id masterID
 ```
 
 3、迁移槽和数据
@@ -558,6 +558,21 @@ add-node 新节点ip  端口  已存在节点ip 端口  --cluster-slave --cluste
 
 添加从节点的方式和添加主节点的一样，从节点不需要分配slot
 
+```bash
+#这个命令可以指定主从关系
+/redis-cli --cluster add-node 新节点ip:端口  已存在节点ip:端口  --cluster-slave --cluster-master-id masterID
+```
+
+也可以通过下面的方式实现：
+
+```bash
+#第一步将实例添加到集群
+/redis-cli --cluster add-node 新节点ip:端口  已存在节点ip:端口
+#手动指定主从给关系
+# 打开要分配主节点的从机客户端，然后执行下面的命令
+cluster replicate 主节点ID
+```
+
 **集群缩容**
 
 cluster删除节点操作应遵循：**先删除slave从节点，然后在删除master主节点**
@@ -565,13 +580,17 @@ cluster删除节点操作应遵循：**先删除slave从节点，然后在删除
 删除从节点：
 
 ```bash
-redis-cli --cluster del-node IP:port 节点ID
+redis-cli --cluster del-node IP:port 节点ID -a 密码
 ```
 
 删除主节点：
 
 ```bash
-redis-cli --cluster reshard --cluster-from 要迁出节点ID  --cluster-to  接收槽节点ID --cluster-slots 迁出槽数量 已存在节点ip 端口
+#第一步：迁移数据slot
+redis-cli --cluster reshard --cluster-from 要迁出节点ID  --cluster-to  接收槽节点ID --cluster-slots 迁出槽数量 已存在节点ip:端口 -a 密码
+#第二步：删除节点
+/usr/local/bin/redis-cli --cluster del-node 192.168.154.3:7006 513873d67584cbae49632728fbe3e42656abd5eb -a 123456
+
 ```
 
 #### cluster客户端
